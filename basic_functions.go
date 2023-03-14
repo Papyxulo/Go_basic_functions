@@ -1,14 +1,19 @@
 package basic_functions
 
 import (
+	"archive/zip"
+	"crypto/md5"
+	"encoding/gob"
+	"encoding/hex"
+	"fmt"
+	"io"
 	"io/fs"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 )
-
-// version 1.0.1
 
 func Read_file(file string) ([]byte, error) {
 	if _, err := os.Stat(file); err == nil {
@@ -40,6 +45,96 @@ func Delete_file(file string) error {
 		return err
 	}
 	return nil
+}
+
+func Download_file(filepath string, url string) (err error) {
+
+	// Create the file
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	// Get the data
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Check server response
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	// Writer the body to file
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func Current_directory() string {
+
+	ex, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+
+	// the executable directory
+	directory := filepath.Dir(ex)
+	return directory
+}
+
+func Read_file_in_zip(zip_path string, file_path string) (string, error) {
+	r, err := zip.OpenReader(zip_path)
+	if err != nil {
+		return "", err
+	}
+	defer r.Close()
+
+	file_data := ""
+	for _, f := range r.File {
+		if !strings.Contains(f.Name, file_path) {
+			continue
+		}
+
+		buffer := new(strings.Builder)
+		rc, err := f.Open()
+		if err != nil {
+			log.Fatal(err)
+		}
+		_, err = io.Copy(buffer, rc)
+		if err != nil {
+			log.Fatal(err)
+		}
+		file_data = buffer.String()
+		break
+	}
+	return file_data, err
+}
+
+func Serialize(filePath string, object interface{}) error {
+	file, err := os.Create(filePath)
+	if err == nil {
+		dataEncoder := gob.NewEncoder(file)
+		dataEncoder.Encode(object)
+		file.Close()
+	}
+	return err
+}
+
+func Deserialize(filePath string, object interface{}) error {
+	file, err := os.Open(filePath)
+	if err == nil {
+		decoder := gob.NewDecoder(file)
+		err = decoder.Decode(object)
+	}
+	file.Close()
+	return err
 }
 
 func File_or_directory_exists(path string) bool {
@@ -76,13 +171,8 @@ func List_files_by_extension(dir string, extension string) []string {
 	return extfiles
 }
 
-func Current_directory() string {
-	ex, err := os.Executable()
-	if err != nil {
-		panic(err)
-	}
-
-	// the executable directory
-	directory := filepath.Dir(ex)
-	return directory
+func Calc_md5(data string) string {
+	hash := md5.Sum([]byte(data))
+	md5_string := hex.EncodeToString(hash[:])
+	return md5_string
 }
