@@ -26,17 +26,19 @@ func Read_file(file string) ([]byte, error) {
 
 func Write_file(file string, data string) error {
 	// save the file to disk
-	f, err := os.OpenFile(file, os.O_APPEND|os.O_CREATE, 0666)
+	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_APPEND, os.ModePerm)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	_, err2 := f.WriteString(data)
-	if err2 != nil {
+	_, err = f.WriteString(data)
+	if err != nil {
+		print(err.Error())
 		return err
 	}
 	return nil
+
 }
 
 func Delete_file(file string) error {
